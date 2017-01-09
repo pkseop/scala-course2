@@ -15,36 +15,24 @@ object Calculator {
   }
 
   def eval(expr: Expr, references: Map[String, Signal[Expr]]): Double = {
-    def isCyclic(expr: Expr, prev: List[String]): Boolean = {
+    def innerEval(expr: Expr, nameList: List[String]): Double = {
       expr match {
-        case Literal(v) => false
+        case Literal(v) => v
         case Ref(name) => {
-          if(prev.exists(x => name.equals(x)))
-            true
+          val next = getReferenceExpr(name, references)
+          if(nameList.exists(x => name.equals(x)))
+            Double.NaN
           else
-            isCyclic(getReferenceExpr(name, references), name :: prev)
+            innerEval(next, name :: nameList)
         }
-        case Plus(a, b) => isCyclic(a, prev) || isCyclic(b, prev)
-        case Minus(a, b) => isCyclic(a, prev) || isCyclic(b, prev)
-        case Times(a, b) => isCyclic(a, prev) || isCyclic(b, prev)
-        case Divide(a, b) => isCyclic(a, prev) || isCyclic(b, prev)
+        case Plus(a, b) => innerEval(a, nameList) + innerEval(b, nameList)
+        case Minus(a, b) => innerEval(a, nameList) - innerEval(b, nameList)
+        case Times(a, b) => innerEval(a, nameList) * innerEval(b, nameList)
+        case Divide(a, b) => innerEval(a, nameList) / innerEval(b, nameList)
       }
     }
 
-    expr match {
-      case Literal(v) => v
-      case Ref(name) => {
-        val next = getReferenceExpr(name, references)
-        if(isCyclic(next, List(name)))
-          Double.NaN
-        else
-          eval(next, references)
-      }
-      case Plus(a, b) => eval(a, references) + eval(b, references)
-      case Minus(a, b) => eval(a, references) - eval(b, references)
-      case Times(a, b) => eval(a, references) * eval(b, references)
-      case Divide(a, b) => eval(a, references) / eval(b, references)
-    }
+    innerEval(expr, Nil)
   }
 
   /** Get the Expr for a referenced variables.
